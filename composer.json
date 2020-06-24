@@ -11,5 +11,8 @@
       "email": "hello@hoss.com",
       "homepage": "https://www.hoss.com"
     }
-  ]
+  ],
+  "autoload": {
+    "classmap": ["src/"]
+  }
 }
