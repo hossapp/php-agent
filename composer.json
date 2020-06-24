@@ -1,0 +1,15 @@
+{
+  "name": "hoss",
+  "type": "library",
+  "description": "Your package description goes here",
+  "keywords": ["relevant","tags","go","here"],
+  "homepage": "https://www.hoss.com",
+  "license": "",
+  "authors": [
+    {
+      "name": "Hossta",
+      "email": "hello@hoss.com",
+      "homepage": "https://www.hoss.com"
+    }
+  ]
+}
