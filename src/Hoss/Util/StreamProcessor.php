@@ -1,6 +1,9 @@
 <?php
 
 namespace Hoss\Util;
+
+use Hoss\Configuration;
+
 use Hoss\CodeTransform\AbstractCodeTransform;
 
 /**
@@ -51,15 +54,26 @@ class StreamProcessor
      */
     protected $isIntercepting = false;
 
+
+    private static $instance = null;
+
     /**
      *
      * @param Configuration $configuration
      */
-    public function __construct(Configuration $configuration = null)
+    private function __construct(Configuration $configuration = null)
     {
         if ($configuration) {
             static::$configuration = $configuration;
         }
+    }
+
+    public static function getInstance(Configuration $configuration = null)
+    {
+        if (is_null(self::$instance)) {
+            self::$instance = new StreamProcessor($configuration);
+        }
+        return self::$instance;
     }
 
     /**
@@ -157,11 +171,11 @@ class StreamProcessor
     /**
      * Opens a stream and attaches registered filters.
      *
-     * @param  string  $path       Specifies the URL that was passed to the original function.
-     * @param  string  $mode       The mode used to open the file, as detailed for fopen().
-     * @param  integer $options    Holds additional flags set by the streams API.
+     * @param string $path Specifies the URL that was passed to the original function.
+     * @param string $mode The mode used to open the file, as detailed for fopen().
+     * @param integer $options Holds additional flags set by the streams API.
      *                             It can hold one or more of the following values OR'd together.
-     * @param  string  $openedPath If the path is opened successfully, and STREAM_USE_PATH is set in options,
+     * @param string $openedPath If the path is opened successfully, and STREAM_USE_PATH is set in options,
      *                             opened_path should be set to the full path of the file/resource that was
      *                             actually opened.
      *
@@ -182,9 +196,9 @@ class StreamProcessor
             $this->resource = fopen($path, $mode, $options & STREAM_USE_PATH);
         }
 
-//        if ($options & self::STREAM_OPEN_FOR_INCLUDE && $this->shouldProcess($path)) {
-        $this->appendFiltersToStream($this->resource);
-//        }
+        if ($options & self::STREAM_OPEN_FOR_INCLUDE && $this->shouldProcess($path)) {
+            $this->appendFiltersToStream($this->resource);
+        }
 
         $this->intercept();
 
@@ -232,7 +246,7 @@ class StreamProcessor
      * Read from stream.
      *
      * @link http://www.php.net/manual/en/streamwrapper.stream-read.php
-     * @param  int $count How many bytes of data from the current position should be returned.
+     * @param int $count How many bytes of data from the current position should be returned.
      *
      * @return string If there are less than count bytes available, return as many as are available.
      *                If no more data is available, return either FALSE or an empty string.
@@ -245,8 +259,8 @@ class StreamProcessor
     /**
      * Seeks to specific location in a stream.
      *
-     * @param  integer $offset The stream offset to seek to.
-     * @param  integer $whence Possible values:
+     * @param integer $offset The stream offset to seek to.
+     * @param integer $whence Possible values:
      *                         SEEK_SET - Set position equal to offset bytes.
      *                         SEEK_CUR - Set position to current location plus offset.
      *                         SEEK_END - Set position to end-of-file plus offset.
@@ -292,8 +306,8 @@ class StreamProcessor
      *
      * @link http://www.php.net/manual/en/streamwrapper.url-stat.php
      *
-     * @param  string  $path  The file path or URL to stat.
-     * @param  integer $flags Holds additional flags set by the streams API.
+     * @param string $path The file path or URL to stat.
+     * @param integer $flags Holds additional flags set by the streams API.
      *
      * @return integer        Should return as many elements as stat() does.
      */
@@ -334,7 +348,7 @@ class StreamProcessor
      *
      * @link http://www.php.net/manual/en/streamwrapper.dir-opendir.php
      *
-     * @param  string $path The file path or URL to stat.
+     * @param string $path The file path or URL to stat.
      *
      * @return boolean Returns TRUE on success or FALSE on failure.
      */
@@ -382,9 +396,9 @@ class StreamProcessor
      *
      * @link http://www.php.net/manual/en/streamwrapper.mkdir.php
      *
-     * @param  string  $path       Directory which should be created.
-     * @param  int     $mode       The value passed to mkdir().
-     * @param  integer $options    A bitwise mask of values, such as STREAM_MKDIR_RECURSIVE.
+     * @param string $path Directory which should be created.
+     * @param int $mode The value passed to mkdir().
+     * @param integer $options A bitwise mask of values, such as STREAM_MKDIR_RECURSIVE.
      *
      * @return boolean  Returns TRUE on success or FALSE on failure.
      */
@@ -406,8 +420,8 @@ class StreamProcessor
      *
      * @link http://www.php.net/manual/en/streamwrapper.rename.php
      *
-     * @param  string $path_from The URL to the current file.
-     * @param  string $path_to   The URL which the path_from should be renamed to.
+     * @param string $path_from The URL to the current file.
+     * @param string $path_to The URL which the path_from should be renamed to.
      *
      * @return boolean Returns TRUE on success or FALSE on failure.
      */
@@ -429,7 +443,7 @@ class StreamProcessor
      *
      * @link http://www.php.net/manual/en/streamwrapper.rmdir.php
      *
-     * @param  string $path The directory URL which should be removed.
+     * @param string $path The directory URL which should be removed.
      *
      * @return boolean Returns TRUE on success or FALSE on failure.
      */
@@ -451,7 +465,7 @@ class StreamProcessor
      *
      * @link http://www.php.net/manual/en/streamwrapper.stream-cast.php
      *
-     * @param  integer $cast_as Can be STREAM_CAST_FOR_SELECT when stream_select() is calling stream_cast() or
+     * @param integer $cast_as Can be STREAM_CAST_FOR_SELECT when stream_select() is calling stream_cast() or
      *                          STREAM_CAST_AS_STREAM when stream_cast() is called for other uses.
      * @return resource         Should return the underlying stream resource used by the wrapper, or FALSE.
      */
@@ -465,7 +479,7 @@ class StreamProcessor
      *
      * @link http://www.php.net/manual/en/streamwrapper.stream-lock.php
      *
-     * @param  integer $operation One of the operation constantes.
+     * @param integer $operation One of the operation constantes.
      *
      * @return boolean Returns TRUE on success or FALSE on failure.
      */
@@ -480,9 +494,9 @@ class StreamProcessor
      *
      * @codeCoverageIgnore
      *
-     * @param  int $option One of STREAM_OPTION_BLOCKING, STREAM_OPTION_READ_TIMEOUT, STREAM_OPTION_WRITE_BUFFER.
-     * @param  int $arg1   Depending on option.
-     * @param  int $arg2   Depending on option.
+     * @param int $option One of STREAM_OPTION_BLOCKING, STREAM_OPTION_READ_TIMEOUT, STREAM_OPTION_WRITE_BUFFER.
+     * @param int $arg1 Depending on option.
+     * @param int $arg2 Depending on option.
      *
      * @return boolean Returns TRUE on success or FALSE on failure. If option is not implemented,
      *                 FALSE should be returned.
@@ -506,12 +520,12 @@ class StreamProcessor
     /**
      * Write to stream.
      *
+     * @param string $data Should be stored into the underlying stream.
+     *
+     * @return int
      * @throws \BadMethodCallException If called, because this method is not applicable for this stream.
      * @link http://www.php.net/manual/en/streamwrapper.stream-write.php
      *
-     * @param  string $data Should be stored into the underlying stream.
-     *
-     * @return int
      */
     public function stream_write($data)
     {
@@ -523,7 +537,7 @@ class StreamProcessor
      *
      * @link http://www.php.net/manual/en/streamwrapper.unlink.php
      *
-     * @param  string $path The file URL which should be deleted.
+     * @param string $path The file URL which should be deleted.
      *
      * @return boolean Returns TRUE on success or FALSE on failure.
      */
@@ -544,9 +558,9 @@ class StreamProcessor
      * Change stream options.
      *
      * @link http://www.php.net/manual/en/streamwrapper.stream-metadata.php
-     * @param  string  $path   The file path or URL to set metadata.
-     * @param  integer $option One of the stream options.
-     * @param  mixed   $value  Value depending on the option.
+     * @param string $path The file path or URL to set metadata.
+     * @param integer $option One of the stream options.
+     * @param mixed $value Value depending on the option.
      *
      * @return boolean Returns TRUE on success or FALSE on failure.
      */
@@ -585,7 +599,7 @@ class StreamProcessor
      *
      * @link http://www.php.net/manual/en/streamwrapper.stream-truncate.php
      *
-     * @param  integer $new_size The new size.
+     * @param integer $new_size The new size.
      *
      * @return boolean Returns TRUE on success or FALSE on failure.
      */

@@ -2,10 +2,8 @@
 
 namespace Hoss\LibraryHooks;
 
+
 use Hoss\Response;
-use Hoss\Util\Assertion;
-use Hoss\Util\HttpUtil;
-use Hoss\Util\StreamHelper;
 
 /**
  * Library hook for streamWrapper functions using stream_wrapper_register().
@@ -40,10 +38,8 @@ class StreamWrapperHook implements LibraryHook
     /**
      * @inheritDoc
      */
-    public function enable(\Closure $requestCallback)
+    public function enable()
     {
-        Assertion::isCallable($requestCallback, 'No valid callback for handling requests defined.');
-        self::$requestCallback = $requestCallback;
         stream_wrapper_unregister('http');
         stream_wrapper_register('http', __CLASS__, STREAM_IS_URL);
 

@@ -2,7 +2,7 @@
 
 namespace Hoss\LibraryHooks;
 
-use Hoss\Util\Assertion;
+use Hoss\CodeTransform\SoapCodeTransform;
 use Hoss\VCRException;
 use Hoss\Request;
 use Hoss\CodeTransform\AbstractCodeTransform;
@@ -36,12 +36,12 @@ class SoapHook implements LibraryHook
     /**
      * Creates a SOAP hook instance.
      *
-     * @param AbstractCodeTransform  $codeTransformer
+     * @param AbstractCodeTransform $codeTransformer
      * @param StreamProcessor $processor
      *
      * @throws \BadMethodCallException in case the Soap extension is not installed.
      */
-    public function __construct(AbstractCodeTransform $codeTransformer, StreamProcessor $processor)
+    public function __construct()
     {
         if (!class_exists('\SoapClient')) {
             throw new \BadMethodCallException('For soap support you need to install the soap extension.');
@@ -51,8 +51,8 @@ class SoapHook implements LibraryHook
             throw new \BadMethodCallException('For soap support you need to install the xml extension.');
         }
 
-        $this->processor = $processor;
-        $this->codeTransformer = $codeTransformer;
+        $this->processor = StreamProcessor::getInstance();
+        $this->codeTransformer = new SoapCodeTransform();
     }
 
     /**
@@ -63,7 +63,7 @@ class SoapHook implements LibraryHook
      * @param int $one_way
      *
      * @return string SOAP response.
-     *@throws \App\Hoss\VCRException It this method is called although VCR is disabled.
+     * @throws \App\Hoss\VCRException It this method is called although VCR is disabled.
      *
      */
     public function doRequest($request, $location, $action, $version, $one_way = 0, $options = array())
@@ -100,11 +100,8 @@ class SoapHook implements LibraryHook
     /**
      * @inheritDoc
      */
-    public function enable(\Closure $requestCallback)
+    public function enable()
     {
-        Assertion::isCallable($requestCallback, 'No valid callback for handling requests defined.');
-        self::$requestCallback = $requestCallback;
-
         if ($this->status == self::ENABLED) {
             return;
         }

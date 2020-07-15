@@ -23,57 +23,26 @@ class Request
      * @var string
      */
     protected $body;
-    /**
-     * @var array
-     */
-    protected $postFiles = array();
-    /**
-     * @var array
-     */
-    protected $postFields = array();
-    /**
-     * @var array
-     */
-    protected $curlOptions = array();
+
+    protected $receivedAt;
 
     /**
      * @param string $method
      * @param string $url
      * @param array $headers
      */
-    public function __construct($method, $url, array $headers = array())
+    public function __construct($method, $url, array $headers = array(), $body = null)
     {
         $this->method = $method;
         $this->headers = $headers;
         $this->setUrl($url);
-    }
-
-    /**
-     * Returns true if specified request matches the current one
-     * with specified request matcher callbacks.
-     *
-     * @param  Request $request Request to check if it matches the current one.
-     * @param  callable[] $requestMatchers Request matcher callbacks.
-     *
-     * @throws \BadFunctionCallException If one of the specified request matchers is not callable.
-     * @return boolean True if specified request matches the current one.
-     */
-    public function matches(Request $request, array $requestMatchers)
-    {
-        foreach ($requestMatchers as $matcher) {
-            if (!is_callable($matcher)) {
-                throw new \BadFunctionCallException(
-                    'Matcher could not be executed. ' . print_r($matcher, true)
-                );
-            }
-
-            if (call_user_func_array($matcher, array($this, $request)) === false) {
-                return false;
-            }
+        $this->setReceivedAt();
+        if (!is_null($body)) {
+            $this->setBody($body);
         }
 
-        return true;
     }
+
 
     /**
      * Returns an array representation of this request.
@@ -82,49 +51,15 @@ class Request
      */
     public function toArray()
     {
-        return array_filter(
-            array(
-                'method' => $this->getMethod(),
-                'url' => $this->getUrl(),
-                'headers' => $this->getHeaders(),
-                'body' => $this->getBody(),
-                'post_files' => $this->getPostFiles(),
-                'post_fields' => $this->getPostFields(),
-            )
+        return array(
+            'method' => $this->getMethod(),
+            'url' => $this->getUrl(),
+            'headers' => $this->getHeaders(),
+            'body' => base64_encode($this->getBody()),
+            'receivedAt' => $this->receivedAt,
         );
     }
 
-    /**
-     * Creates a new Request from a specified array.
-     *
-     * @param  array $request Request represented as an array.
-     *
-     * @return Request A new Request from specified array.
-     */
-    public static function fromArray(array $request)
-    {
-        $requestObject = new Request(
-            $request['method'],
-            $request['url'],
-            isset($request['headers']) ? $request['headers'] : array()
-        );
-
-        if (!empty($request['post_fields']) && is_array($request['post_fields'])) {
-            $requestObject->setPostFields($request['post_fields']);
-        }
-
-        if (!empty($request['post_files']) && is_array($request['post_files'])) {
-            foreach ($request['post_files'] as $file) {
-                $requestObject->addPostFile($file);
-            }
-        }
-
-        if (!empty($request['body'])) {
-            $requestObject->setBody((string)$request['body']);
-        }
-
-        return $requestObject;
-    }
 
     /**
      * @param string $url
@@ -349,5 +284,10 @@ class Request
     public function addPostFile(array $file)
     {
         $this->postFiles[] = $file;
+    }
+
+    public function setReceivedAt()
+    {
+        $this->receivedAt = round(microtime(true) * 1000);
     }
 }

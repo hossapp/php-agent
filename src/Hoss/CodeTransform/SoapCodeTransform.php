@@ -7,8 +7,8 @@ class SoapCodeTransform extends AbstractCodeTransform
     const NAME = 'vcr_soap';
 
     private static $replacements = array(
-        'new \App\Agent\Util\SoapClient(',
-        'extends \App\Agent\Util\SoapClient',
+        'new \Hoss\Util\SoapClient(',
+        'extends \Hoss\Util\SoapClient',
     );
 
     private static $patterns = array(

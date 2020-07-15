@@ -25,7 +25,7 @@ interface LibraryHook
      * @return void
      *@throws \App\Hoss\VCRException When specified callback is not callable.
      */
-    public function enable(\Closure $requestCallback);
+    public function enable();
 
     /**
      * Disables library hook, so no http interactions of

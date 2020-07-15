@@ -2,21 +2,14 @@
 
 namespace Hoss;
 
-use VCR\Util\Assertion;
 
 /**
  * Encapsulates a HTTP response.
  */
 class Response
 {
-    /**
-     * @var array
-     */
-    protected $status = array(
-        'code' => null,
-        'message' => ''
-    );
 
+    protected $statusCode;
     /**
      * @var array
      */
@@ -25,12 +18,14 @@ class Response
      * @var string
      */
     protected $body;
+
     /**
      * @var array
      */
     protected $curlInfo = array();
 
     protected $httpVersion;
+    protected $receivedAt;
 
     /**
      * @param string|array $status
@@ -38,12 +33,12 @@ class Response
      * @param string $body
      * @param array $curlInfo
      */
-    final public function __construct($status, array $headers = array(), $body = null, array $curlInfo = array())
+    final public function __construct($statusCode, array $headers = array(), $body = null)
     {
-        $this->setStatus($status);
+        $this->statusCode = $statusCode;
         $this->headers = $headers;
         $this->body = $body;
-        $this->curlInfo = $curlInfo;
+        $this->receivedAt = round(microtime(true) * 1000);
     }
 
     /**
@@ -53,27 +48,18 @@ class Response
      */
     public function toArray()
     {
-        $body = $this->getBody();
-        // Base64 encode when binary
-        if (strpos($this->getContentType(), 'application/x-gzip') !== false
-            || $this->getHeader('Content-Transfer-Encoding') == 'binary'
-        ) {
-            $body = base64_encode($body);
-        }
-
-        return array_filter(
-            array(
-                'status'    => $this->status,
-                'headers'   => $this->getHeaders(),
-                'body'      => $body
-            )
+        return array(
+            'statusCode' => $this->statusCode,
+            'headers' => $this->getHeaders(),
+            'body' => base64_encode($this->getBody()),
+            'receivedAt' => $this->receivedAt,
         );
     }
 
     /**
      * Creates a new Response from a specified array.
      *
-     * @param  array  $response Array representation of a Response.
+     * @param array $response Array representation of a Response.
      * @return Response A new Response from a specified array
      */
     public static function fromArray(array $response)
@@ -135,7 +121,7 @@ class Response
      */
     public function getStatusCode()
     {
-        return $this->status['code'];
+        return $this->statusCode;
     }
 
     public function getContentType()
@@ -161,26 +147,10 @@ class Response
     }
 
     /**
-     * @return string
+     * @param string $body
      */
-    public function getStatusMessage()
+    public function setBody(string $body): void
     {
-        return $this->status['message'];
-    }
-
-    /**
-     * @param string|array $status
-     */
-    protected function setStatus($status)
-    {
-        if (is_array($status)) {
-            $this->status = $status;
-            if (!empty($status['http_version'])) {
-                $this->httpVersion = $status['http_version'];
-            }
-        } else {
-            Assertion::numeric($status, 'Response status must be either an array or a number.');
-            $this->status['code'] = $status;
-        }
+        $this->body = $body;
     }
 }
