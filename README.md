@@ -2,7 +2,7 @@
 
 This is the php agent for Hoss Agent
 
-Hoss helps you track and manage API integrations. It automatically capture outbound requests and alert API become slow, return error or unexpected data
+Hoss helps you track and manage API integrations. It automatically capture outbound requests and alert API become slow, return error or unexpected data. Sign up for a free account at https://www.hoss.com
 
 
 ## Prerequisites
