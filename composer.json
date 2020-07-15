@@ -1,5 +1,5 @@
 {
-  "name": "hossapp/php-agent",
+  "name": "hoss/php-agent",
   "type": "library",
   "description": "Hoss tracks and manages 3rd party API. It lets developers quickly add best practices\nin integrating with 3rd party API, for example: logging, alerting, auto retry, request queuing and more",
   "keywords": ["api", "apm", "monitoring", "devtool"],
