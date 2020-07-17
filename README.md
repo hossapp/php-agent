@@ -1,4 +1,4 @@
-# Hoss Node Agent
+# Hoss PHP Agent
 
 This is the php agent for Hoss Agent
 
