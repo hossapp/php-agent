@@ -13,16 +13,16 @@ class AccountApiConfiguration
 
     /**
      * AccountApiConfiguration constructor.
-     * @param AccountApiConfiguration $remoteAccountApiConfiguration
+     * @param AccountApiConfiguration $remoteAccountApiConfigu $uuidration
      */
-    public function __construct($remoteAccountApiConfiguration)
+    public function __construct($uuid, $hostBlacklist, $sanitizedBodyFields, $sanitizedQueryParams, $sanitizedHeaders, $bodyCapture)
     {
-        $this->uuid = $remoteAccountApiConfiguration->uuid;
-        $this->hostBlacklist = $remoteAccountApiConfiguration->hostBlacklist;
-        $this->sanitizedHeaders = $remoteAccountApiConfiguration->sanitizedHeaders;
-        $this->sanitizedQueryParams = $remoteAccountApiConfiguration->sanitizedQueryParams;
-        $this->sanitizedBodyFields = $remoteAccountApiConfiguration->sanitizedBodyFields;
-        $this->bodyCapture = $remoteAccountApiConfiguration->bodyCapture;
+        $this->uuid = $uuid;
+        $this->hostBlacklist = $hostBlacklist;
+        $this->sanitizedHeaders = $sanitizedHeaders;
+        $this->sanitizedQueryParams = $sanitizedQueryParams;
+        $this->sanitizedBodyFields = $sanitizedBodyFields;
+        $this->bodyCapture = $bodyCapture;
     }
 
     /**
@@ -72,9 +72,8 @@ class AccountApiConfiguration
     {
         return $this->bodyCapture;
     }
-
-
 }
+
 class ApiConfiguration
 {
     private $uuid;
@@ -144,6 +143,15 @@ class ApiConfiguration
 
 class Configuration
 {
+    private static $defaultSanitizedKeys = array(
+        'authorization',
+        'password',
+        'secret',
+        'passwd',
+        'token',
+        'api_key',
+        'access_token',
+        'sessionid');
     private static $remoteConfigurationGraphQL = "
     query AgentConfig {
       agentConfig {
@@ -225,12 +233,14 @@ class Configuration
     private $blackList = array('src/Hoss/LibraryHooks/', 'src/Hoss/Util/SoapClient');
     private $apiKey;
 
+    private $remoteConfigEnabled = true;
+    private $remoteConfigCacheFile = '/tmp/hoss_config.json';
     private $remoteConfigFetchInterval = 600;
     private $lastFetchTimestamp;
     # following are configurations that can be updated remotely
 
     private $accountAPIConfiguration;
-    private $apisConfiguration;
+    private $apisConfiguration = array();
 
     /**
      * Configuration constructor.
@@ -251,15 +261,22 @@ class Configuration
         if ($this->getConfig('api_host', $options)) {
             $this->apiHost = $this->getConfig('api_host', $options);
         }
-        if ($this->getConfig('debug', $options)) {
+        if (!is_null($this->getConfig('debug', $options))) {
             $this->debug = (bool)$this->getConfig('debug', $options);
         }
         if ($this->getConfig('max_backoff_duration', $options)) {
             $this->maxBackOffDuration = (int)$this->getConfig('max_backoff_duration', $options);
         }
+        if (!is_null($this->getConfig('remote_config_enabled', $options))) {
+            $this->remoteConfigEnabled = (bool)$this->getConfig('remote_config_enabled', $options);
+        }
         if ($this->getConfig('remote_config_fetch_interval', $options)) {
             $this->remoteConfigFetchInterval = (int)$this->getConfig('remote_config_fetch_interval', $options);
         }
+        if ($this->getConfig('remote_config_cache_file', $options)) {
+            $this->remoteConfigCacheFile = $this->getConfig('remote_config_fetch_interval', $options);
+        }
+        $this->accountAPIConfiguration = new AccountApiConfiguration("default", array(), array(), self::$defaultSanitizedKeys, self::$defaultSanitizedKeys, "On");
     }
 
     /**
@@ -355,7 +372,7 @@ class Configuration
     /**
      * @return mixed
      */
-    public function getAccountAPIConfiguration(): AccountApiConfiguration
+    public function getAccountAPIConfiguration(): ?AccountApiConfiguration
     {
         return $this->accountAPIConfiguration;
     }
@@ -368,27 +385,70 @@ class Configuration
         return $this->apisConfiguration;
     }
 
-    private function updateFromRemoteConfig($remoteConfig)
+    private function updateFromRemoteConfig($remoteConfigData)
     {
         // todo handle no config
-        $accountApiConfiguration = $remoteConfig->data->agentConfig->accountApiConfiguration;
-        $apis = $remoteConfig->data->agentConfig->apis;
-        $this->accountAPIConfiguration = new AccountApiConfiguration($accountApiConfiguration);
-        $this->apisConfiguration = array();
+        if ($remoteConfigData && !array_key_exists('errors', $remoteConfigData) && array_key_exists('data',$remoteConfigData) && array_key_exists('agentConfig',$remoteConfigData['data'])) {
+            $remoteConfig = $remoteConfigData['data']['agentConfig'];
+            $accountApiConfiguration = $remoteConfig['accountApiConfiguration'] ;
+            $apis = $remoteConfig['apis'];
+            if (!is_null($accountApiConfiguration)) {
+                $this->accountAPIConfiguration = new AccountApiConfiguration(
+                    $accountApiConfiguration['uuid'],
+                    $accountApiConfiguration['hostBlacklist'],
+                    $accountApiConfiguration['sanitizedBodyFields'],
+                    $accountApiConfiguration['sanitizedQueryParams'],
+                    $accountApiConfiguration['sanitizedHeaders'],
+                    $accountApiConfiguration['bodyCapture']
+                );
+            }
+            if (!is_null($apis)) {
+                $this->apisConfiguration = array();
 
-        foreach ($apis as $api) {
-            $apiConfiguration = new ApiConfiguration(
-                $api->uuid,
-                $api->configuration->sanitizedHeaders,
-                $api->configuration->sanitizedQueryParams,
-                $api->configuration->bodyCapture,
-                $api->configuration->sanitizedBodyFields
-            );
-            # map host to api configuration
-            foreach($api->hosts as $host) {
-                $this->apisConfiguration[$host] = $apiConfiguration;
+                foreach ($apis as $api) {
+                    $conf = $api['configuration'];
+                    $apiConfiguration = new ApiConfiguration(
+                        $api['uuid'],
+                        $conf['sanitizedHeaders'],
+                        $conf['sanitizedQueryParams'],
+                        $conf['bodyCapture'],
+                        $conf['sanitizedBodyFields']
+                    );
+                    # map host to api configuration
+                    foreach ($api['hosts'] as $host) {
+                        $this->apisConfiguration[$host] = $apiConfiguration;
+                    }
+                }
             }
         }
+    }
+
+    /**
+     * Return timestamp of the cached config
+     */
+    private function getCachedConfigTimestamp()
+    {
+        try {
+            return filemtime($this->remoteConfigCacheFile);
+        } catch (\Exception $e) {
+            if ($this->isDebug()) {
+                $message = "Error getting last modified time: ".$e->getMessage();
+                error_log('[Hoss][Configuration] '.$message);
+            }
+
+        }
+        return false;
+
+    }
+
+    private function updateConfigFromCache()
+    {
+        $configString = file_get_contents($this->remoteConfigCacheFile);
+        if ($configString === false) {
+            return;
+        }
+        $config = json_decode($configString, true);
+        $this->updateFromRemoteConfig($config);
     }
 
     /**
@@ -396,50 +456,68 @@ class Configuration
      */
     public function fetchRemoteConfig()
     {
-        // check if we should fetch based on last fetch timestamp
-        $now = round(microtime(true) * 1000);
-        if ($now - $this->lastFetchTimestamp <= $this->remoteConfigFetchInterval * 1000) {
-            return;
-        }
         global $HOSS_VERSION;
+        if ($this->remoteConfigEnabled) {
+            $cachedConfigTimestamp = $this->getCachedConfigTimestamp() * 1000;
+            $now = round(microtime(true) * 1000);
+            if ($cachedConfigTimestamp !== false && $now - $cachedConfigTimestamp <= $this->remoteConfigFetchInterval * 1000) {
+                $this->updateConfigFromCache();
+                return;
+            }
 
-        $body = array(
-            "query" => Configuration::$remoteConfigurationGraphQL
-        );
-        $payload = json_encode($body);
+            $body = array(
+                "query" => Configuration::$remoteConfigurationGraphQL
+            );
+            $payload = json_encode($body);
 
-        $protocol = "https://";
-        $path = "/api/graphql";
-        $url = $protocol . $this->getApiHost() . $path;
+            $protocol = "https://";
+            $path = "/api/graphql";
+            $url = $protocol . $this->getApiHost() . $path;
 
-        // open connection
-        $ch = \curl_init();
+            // open connection
+            $ch = \curl_init();
 
-        // set the url, number of POST vars, POST data
-        \curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+            // set the url, number of POST vars, POST data
+            \curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
 
-        // set variables for headers
-        $header = array();
-        $header[] = 'Content-Type: application/json';
-        $header[] = "User-Agent: hoss-php/${HOSS_VERSION}";
-        $header[] = 'Authorization: Bearer ' . $this->apiKey;
+            // set variables for headers
+            $header = array();
+            $header[] = 'Content-Type: application/json';
+            $header[] = "User-Agent: hoss-php/${HOSS_VERSION}";
+            $header[] = 'Authorization: Bearer ' . $this->apiKey;
 
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
-        $httpResponse = \curl_exec($ch);
+            $httpResponse = \curl_exec($ch);
 
-        $httpCode = \curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        //close connection
-        curl_close($ch);
+            $httpCode = \curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            //close connection
+            curl_close($ch);
 
-        if (200 == $httpCode) {
-            $this->updateFromRemoteConfig(json_decode($httpResponse));
+            if (200 == $httpCode) {
+                # only write cache file if config doesn't have error
+                $decodedConfig = json_decode($httpResponse, true);
+                if (!array_key_exists("errors", $decodedConfig) && array_key_exists("data", $decodedConfig) && array_key_exists("agentConfig", $decodedConfig["data"])) {
+                    $result = file_put_contents($this->remoteConfigCacheFile, $httpResponse);
+                    $this->updateFromRemoteConfig(json_decode($httpResponse, true));
+                } else {
+                    if ($this->isDebug()) {
+                        $message = "Error getting remote config: ".$httpResponse;
+                        error_log('[Hoss][Configuration] '.$message);
+                    }
+                }
+            } else {
+                if ($this->isDebug()) {
+                    $message = "Error getting remote config: ".$httpResponse;
+                    error_log('[Hoss][Configuration] '.$message);
+                }
+            }
+            $this->lastFetchTimestamp = round(microtime(true) * 1000);
+
+            return $httpResponse;
         }
-        $this->lastFetchTimestamp = round(microtime(true) * 1000);
-
-        return $httpResponse;
     }
 
     /**

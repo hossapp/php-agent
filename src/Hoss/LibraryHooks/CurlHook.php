@@ -4,7 +4,10 @@ namespace Hoss\LibraryHooks;
 
 require_once(__DIR__ . '/LibraryHook.php');
 require_once(__DIR__ . '/../Util/StreamProcessor.php');
+require_once(__DIR__ . '/../Util/TextUtil.php');
+require_once(__DIR__ . '/../Util/HttpUtil.php');
 require_once(__DIR__ . '/../CodeTransform/CurlCodeTransform.php');
+require_once(__DIR__ . '/../Util/CurlHelper.php');
 require_once(__DIR__ . '/../Event.php');
 
 use Hoss\CodeTransform\CurlCodeTransform;
@@ -129,19 +132,6 @@ class CurlHook implements LibraryHook
         return self::$status == self::ENABLED;
     }
 
-    private static function parseResponseHeaders($curlResponse)
-    {
-        if ($curlResponse === false || $curlResponse == "") {
-            return null;
-        }
-        list($status, $headers, $body) = HttpUtil::parseResponse($curlResponse);
-        return new Response(
-            HttpUtil::parseStatus($status),
-            HttpUtil::parseHeaders($headers),
-            $body
-        );
-    }
-
     //====================
     // Curl function hooks
     //====================
@@ -158,19 +148,7 @@ class CurlHook implements LibraryHook
     {
         // Call original when disabled
         if (static::$status == self::DISABLED) {
-            if ($method === 'curl_multi_exec') {
-                // curl_multi_exec expects to be called with args by reference
-                // which call_user_func_array doesn't do.
-                return \curl_multi_exec($args[0], $args[1]);
-            }
-
             return \call_user_func_array($method, $args);
-        }
-
-        if ($method === 'curl_multi_exec') {
-            // curl_multi_exec expects to be called with args by reference
-            // which call_user_func_array doesn't do.
-            return self::curlMultiExec($args[0], $args[1]);
         }
 
         $localMethod = TextUtil::underscoreToLowerCamelcase($method);
@@ -192,6 +170,8 @@ class CurlHook implements LibraryHook
             self::$events[(int)$curlHandle] = new Event(new Request('GET', $url));
             self::$curlOptions[(int)$curlHandle] = array();
         } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+
         }
         return $curlHandle;
     }
@@ -208,8 +188,8 @@ class CurlHook implements LibraryHook
         try {
             self::$events[(int)$curlHandle] = new Event(new Request('GET', null));
             self::$curlOptions[(int)$curlHandle] = array();
-        } catch (\Throwable $e) {
         } catch (\Exception $e) {
+        } catch (\Throwable $e) {
         }
     }
 
@@ -261,6 +241,7 @@ class CurlHook implements LibraryHook
         # override header function with our version so we can access the header. The function call through to the original
         # header function if available
         \curl_setopt($curlHandle, CURLOPT_HEADERFUNCTION, self::createHeaderFunction($curlHandle, $event));
+        // todo: do we need to override CURLOPT_RETURNTRANSFER?
 
         $result = \curl_exec($curlHandle);
 
@@ -270,6 +251,7 @@ class CurlHook implements LibraryHook
             if (!is_null($event)) {
                 $headers = self::$curlResponseHeaders[$curlHandleIndex];
                 $status = array_shift($headers);
+
                 if (array_key_exists(CURLOPT_FILE, self::$curlOptions[$curlHandleIndex])) {
                     $body = stream_get_contents(self::$curlOptions[$curlHandleIndex][CURLOPT_FILE]);
                 } elseif (array_key_exists(CURLOPT_RETURNTRANSFER, self::$curlOptions[$curlHandleIndex])) {

@@ -6,6 +6,7 @@ require_once(__DIR__.'/BaseQueueConsumer.php');
 
 class LibCurlConsumer extends BaseQueueConsumer
 {
+    protected $type = "LibCurlConsumer";
     protected function flushBatch($messages)
     {
         global $HOSS_VERSION;

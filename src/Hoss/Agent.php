@@ -56,7 +56,7 @@ class Agent
      * @param null $body Body as a string
      * @return Event
      */
-    public function captureRequest($method, $url, $headers=array(), $body=null) {
+    public function captureRequest($method, $url, $headers=array(), ?string $body=null) {
         return new Event(new Request($method, $url, $headers, $body));
     }
 

@@ -16,7 +16,7 @@ class Client
   public function __construct($apiKey,  $configuration)
   {
       # default consumer. Should be customizable by configuration
-      $this->consumer = new SocketConsumer($apiKey, $configuration);
+      $this->consumer = new LibCurlConsumer($apiKey, $configuration);
       $this->configuration = $configuration;
   }
 

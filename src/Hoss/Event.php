@@ -7,12 +7,14 @@ require_once(__DIR__.'/Response.php');
 
 use Hoss\Util\TextUtil;
 
-class Event {
+class Event
+{
     public $eventId;
     public $request;
     public $response;
     public $error = null;
     private $metadata = array();
+
     /**
      * Event constructor.
      */
@@ -50,9 +52,11 @@ class Event {
     /**
      * Update metadata with id of the current api configuration
      */
-    public function setApiConfigurationUUID(string $uuid) {
+    public function setApiConfigurationUUID(?string $uuid)
+    {
         $this->metadata["apiConfigurationUUID"] = $uuid;
     }
+
     public function removeRequestBody($reason)
     {
         $this->request->setBody("");

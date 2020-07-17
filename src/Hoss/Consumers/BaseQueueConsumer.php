@@ -10,7 +10,7 @@ require_once(__DIR__.'/../Event.php');
 require_once(__DIR__.'/../Configuration.php');
 
 abstract class BaseQueueConsumer {
-
+    protected $type = "BaseQueueConsumer";
     protected $queue;
     protected $configuration;
     /**
@@ -80,11 +80,6 @@ abstract class BaseQueueConsumer {
      * @param  string $msg
      */
     protected function handleError($code, $msg) {
-//        if (isset($this->options['error_handler'])) {
-//            $handler = $this->options['error_handler'];
-//            $handler($code, $msg);
-//        }
-
         if ($this->configuration->isDebug()) {
             error_log("[Hoss][" . $this->type . "] " . $msg);
         }
@@ -102,6 +97,8 @@ abstract class BaseQueueConsumer {
         if (array_key_exists($event->request->getHost(), $apiConfigurationMap)) {
             $apiConfiguration = $apiConfigurationMap[$event->request->getHost()];
             $event->setApiConfigurationUUID($apiConfiguration->getUuid());
+        } else {
+            $event->setApiConfigurationUUID(null);
         }
 
         // todo should refactor this into a list of processor functions

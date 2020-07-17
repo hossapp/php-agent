@@ -8,6 +8,7 @@ require_once(__DIR__.'/BaseQueueConsumer.php');
 
 class SocketConsumer extends BaseQueueConsumer
 {
+    protected $type = "SocketConsumer";
     /**
      * @var int
      */
